@@ -5,8 +5,8 @@ A full installation of the Z80Pack Z80 System emulator in 50MB.
 Z80Pack, by Udo Munk, is the premier Z80 System emulator, capable of emulating a variety of 8-bit systems. This is a full default installation of Z80Pack's CP/M simulator with CP/M 1, CP/M 2, CP/M 3, Fuzix and MP/M in a tiny 52mb Docker container, together with enhanced scripts to make the installation of additional software easier, and provide additional capabilities for launching CP/M. TMUX, the terminal multiplexor is also added to make running multiple versions of CP/M possible, which is particularly useful for setting up an MP/M network.
 
 
-INSTALLING Z80PACK
-------------------
+INSTALLING Z80PACK-FOR-DOCKER
+-----------------------------
 Simply issue:
 
 docker pull nculver/z80pack
@@ -18,7 +18,7 @@ RUNNING Z80PACK
 This README cannot be a full tutorial on interacting with Docker containers. Here are a few useful ways to run Z80Pack. 
 
 
-* DETACHED *
+-- DETACHED --
 
 Perhaps the most useful is to run it in non-interactive (detached) mode so it's always available in the background as if it were a daemon.
 
@@ -35,7 +35,7 @@ docker exec -it z80pack ./cpm2
 When you exit CP/M (bye typing BYE and then EXIT), the container continues to run and can be easily accessed again.
 
 
-* ONE-OFF *
+-- ONE-OFF --
 
 You could launch a container to run a single instance of CP/M. In this case, when you exit CP/M the container will stop. You will then need to remove the container  
 
