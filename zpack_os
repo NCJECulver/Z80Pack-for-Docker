@@ -1,7 +1,20 @@
 #!/bin/bash 
 
-# Enhanced Z80Pack OS launch script.
-
+# ================================================================
+#             Enhanced Z80Pack OS launch script.
+# ================================================================
+#
+# This script adds additional capabilities to Z80Pack's default
+# OS launch scripts. To use it:
+#
+# 1. Place a copy of zpack_os (this script) in the same directory as your
+#    launch scripts (e.g., z80pack/cpmsim).
+# 
+# 2. Edit the original launch script (e.g., cpm2):
+#    a. Change the shebang line at the top to "#!/bin/bash"
+#    b. Just above the final "./cpmsim" line add two lines:
+#         simcmd="./cpmsim $*" # or whatever the original ./cpmsim line is.
+#         . ./zpack_os         # Yes, that's "dot-space-dot-slash"
 # ----------------------------------------------------------------
 # VERSIONS
  
@@ -35,16 +48,6 @@
 
 # Version 2019-10-25 - First release.
 
-# ----------------------------------------------------------------
-# HOW TO
-#
-# 1. Place a copy of zpack_os (this script) in the same directory as your launch
-#    scripts (e.g., z80pack/cpmsim).
-# 
-# 2. Edit the original launch script (e.g., cpm2):
-#    a. Change the hash-bang line at the top to "#!/bin/bash"
-#    b. Change the "./cpmsim $*" line to "simcmd='./cpmsim $*'".
-#    c. Add ". ./zpack_os" (yes, that's dot-space-dot) as the last line
 # ----------------------------------------------------------------
 # CONFIGURATION
 
