@@ -1,0 +1,346 @@
+#!/bin/bash 
+
+# Enhanced Z80Pack OS launch script.
+
+# ----------------------------------------------------------------
+# VERSIONS
+ 
+# Version 2020-03-06 - Fixes a major issue: hadn't accounted for multiple
+#                      simultaneous instances stepping on each other's links
+#                      in disks/. Script now places each session's links in
+#                      its own disks/<subdir>. See note at the end for further
+#                      discussion.
+
+# Version 2020-03-02 - Finished cleaning up bugs
+#                    - Solved (hopefully!) the dilemma of when or when not to 
+#                      attach to a session; added $attach var. Logic is: if 
+#                      it's a new session, automatically attach; if it's an 
+#                      already-existing session, don't, unless the script is
+#                      run without any command line parameters.
+
+# Version 2020-03-01 - Have thrown in a lot of stuff in the last couple of days, 
+#                      most of it completely broken. Have ironed out the major 
+#                      issues, resulting in large-scale changes that I haven't
+#                      kept track of.
+
+# Version 2020-02-29 - Added check for TMUX; some things only run if true.
+#                    - Added catch for cpmsim's built-in command line params
+
+# Version 2020-02-27 - Reverted change to "cpmsim"; causing unresolved issues.
+#                    - Added check for presence of ./cpmsim. 
+#                    - Added sendcmd{} and cli param to send cmds to session.
+#
+# Version 2020-02-24 - Changed the "./cpmsim" call to "cpmsim" so the 
+#                      executable can be relocated outside the cpmsim dir.
+
+# Version 2019-10-25 - First release.
+
+# ----------------------------------------------------------------
+# HOW TO
+#
+# 1. Place a copy of zpack_os (this script) in the same directory as your launch
+#    scripts (e.g., z80pack/cpmsim).
+# 
+# 2. Edit the original launch script (e.g., cpm2):
+#    a. Change the hash-bang line at the top to "#!/bin/bash"
+#    b. Change the "./cpmsim $*" line to "simcmd='./cpmsim $*'".
+#    c. Add ". ./zpack_os" (yes, that's dot-space-dot) as the last line
+# ----------------------------------------------------------------
+# CONFIGURATION
+
+# The name of the TMUX session the OS session will be run in. This is set by
+# default to the name of this launch script, but can be changed either here or
+# via command line parameter. This would be useful if, for example, the user
+# wished to run two sessions of the same OS simultaneously. Not currently
+# implemented. To run the same OS under a different session name, create a copy
+# of the launch file with the new name.
+  session_name=$(basename -- $0)
+
+# This script will use TMUX by default if it's found on the system. You can dis-
+# able that by commenting this out. (NOT CURRENTLY IMPLEMENTED; better implemen-
+# ted as a cli param)
+#  usetmux=yes
+
+# When this script is run, sometimes (e.g., when starting a new session, or run-
+# ning the script w/o params), attaching is the assumed desired behavior. Other
+# times (e.g., when sending -c or -d commands to an already running session) the
+# user may not be expecting to be attached to the session.
+#
+# Setting this to "yes" will force the script to always attach to the TMUX 
+# session. Leaving it set to "no" allows the script to decide.
+  attach="no"
+  
+# -- END OF CONFIG - no need to change anything below this line --  
+# ----------------------------------------------------------------
+
+# The name of this launch script, stripped of all path info. Note this should
+# never need to be changed. Not currently used; in future I may update the code
+# to make use of this.
+#  script_name=$(basename -- $0)
+
+# set server or client configuration.
+# What am I trying to do with this? It's broken. It runs every time, usually 
+# resulting in error messages; also, this code is for clients only, it doesn't 
+# set up servers. I think I need a switch to set and then a check for the 
+# presence of the conf file to be linked, but I've forgotten how I set things 
+# up. Look into this.
+#
+#  netconf=conf/backups/net_client.conf.example
+#  rm -f conf/*.conf
+#  [ -f $netconf ] && ln $netconf conf/net_client.conf
+
+# ----------------------------------------------------------------
+# BOOLEANS
+
+# Anything except 127 means TMUX is installed.
+# Does a TMUX session by the specified name already exist?
+#
+# Note that this sets is_session at the beginning of the script and never 
+# updates it. This could be a problem should the script ever attempt to 
+# interact with a not-yet-existent session. Probably better to implement
+# this as a boolean function which runs the check every time it's invoked.
+# Something like:
+#
+#  is_session() { tmux has-session -t $session_name &>/dev/null; return $?; }
+
+  tmux_installed=$(tmux info &>/dev/null; [ "$?" = "127" ] && echo "1" || echo "0")
+      is_session=$(tmux has-session -t $session_name &>/dev/null; echo $?)
+
+# ----------------------------------------------------------------
+# PREFLIGHT checks 
+#
+# unset TMUX to avoid nested sessions warnings
+# Bail if cpmsim can't be found
+
+  unset TMUX
+  [ ! -f "./cpmsim" ] && { echo "Cannot locate ./cpmsim. Make sure it's in \
+  the same directory as this launch script, then try again."; exit 1; }
+
+# ----------------------------------------------------------------
+# UTILITIES
+
+# Send a command to the TMUX session
+
+  sendcmd() { if [ "$is_session" ]; then tmux send-keys -t $session_name "$1" C-m; fi; }
+  
+# --------------------
+
+# Setting links to disk images
+
+  setdrive() {
+    echo "Setting drive $1 to $2"
+    
+    # Does the specified file exist
+    if [ ! -f "$2" ]; then 
+      echo "Specified disk image $2 cannot be found. Run $0 --help for help."
+      exit 1
+    fi
+    
+    # Is there already a link
+    if [ -f disks/drive$1.dsk ] ; then
+      echo "Removing disks/drive$1.dsk..."
+      rm disks/drive$1.dsk 
+    else 
+      echo "Unable to remove disks/drive$1.dsk. Make sure it is not write-protected."
+      exit 1
+    fi
+    
+    # Create the link
+    ln "$2" disks/drive$1.dsk
+    return 0
+  }
+
+# --------------------
+# Setting network configuration
+
+  netcfg() { # }
+    echo "Setting network configuration file to $2"
+    
+    # Does the specified file exist
+    if [ ! -f "$2" ]; then
+      echo "Specified configuration file $2 cannot be found. Try $0 --help."
+      exit 1
+    fi
+    
+    # Is there already a link
+    if [ -f conf/*.conf ] ; then
+      echo "Removing current network configuration..."
+      rm conf/*.conf || { echo "Unable to remove conf/*.conf. Make sure they are \
+      not write-protected." ; exit 1 ; }
+    fi
+  
+    # Create the link
+    [[ "$1" == "s" ]] && ln "$2" conf/net_server.conf
+    [[ "$1" == "c" ]] && ln "$2" conf/net_client.conf
+    return 0
+  }
+
+# --------------------
+# Showing help
+
+showhelp () {
+  echo " Z80Pack launch script for $(basename -- $0)                                  "
+  echo " --------------------                                                         "
+  echo " Parameters:                                                                  "
+  echo " -da -db -dc -dd     Specify a disk image for a drive; overrides script set-  "
+  echo " -di -dj -dp         tings. Can be used to swap disks in a running session.   "
+  echo "                                                                              "
+  echo " -ns -nc             Specify the network server or network client configura-  "
+  echo "                     tion file.                                               "
+  echo "                                                                              "
+  echo " -d                  Specify the directory where your disk images are stored. "
+  echo "                                                                              "
+  echo " -c                  Send a command to the $(basename -- $0) session. Requires"
+  echo "                     TMUX. To attach afterwards, rerun this script w/o params."
+  echo "                                                                              "
+# echo " -sn                 Set the OS session name (default: $(basename -- $0).     "
+# echo "                                                                              "
+# echo " -tn                 Don't use TMUX, even if it's installed.                  "
+# printf "                     Default: "; [ "$usetmux" = "no" ] && printf "don't "; printf "use TMUX if it's installed.   "
+# echo "                                                                              "
+  echo " --------------------                                                         "
+  echo " Examples:                                                                    "
+  echo "                                                                              "
+  echo " $(basename -- $0)  -dc disks/library/tools.dsk                               "
+  echo "                     Mount tools.dsk as drive C instead of any image specified"
+  echo "                     in the script.                                           "
+  echo "                                                                              "
+  echo " $(basename -- $0)  -ns conf/backups/fullserver.conf                          "
+  echo "                     Use fullserver.conf as the network server configuration  "
+  echo "                     file; overrides settings in the script.                  "
+  echo "                                                                              "
+  echo " $(basename -- $0)  -nc conf/backups/newclient.conf                           "
+  echo "                     Use newclient.conf as the network client configuration   "
+  echo "                     file.                                                    "
+  echo "                                                                              "
+  echo " $(basename -- $0) -d ~/cpm/imgs                                              "
+  echo "                     Load disk images from ~/cpm/imgs instead of the default  "
+  echo "                     location. Z80Pack looks for files named drivea.dsk, etc. "
+  echo "                                                                              "
+  echo " $(basename -- $0) -c 'DIR'                                                   "
+  echo "                     Send the cmd DIR to $(basename -- $0). Requires TMUX.    "
+# echo "                     (Specify a different session via -sn <session_name>      "
+  echo "                                                                              "
+  echo " --------------------                                                         "
+  echo "                                                                              "
+  echo " Notes:                                                                       "
+  echo " Usual disk images and network config files should be set in this script. Use "
+  echo " command line parameters for a one-time override.                             "
+  echo "                                                                              "
+  echo " Z80Pack cannot run with both a server and client network configuration. If   "
+  echo " you specify both on the command line, the last one will override earlier     "
+  echo " settings.                                                                    "
+}
+
+# --------------------
+# Process command line parameters.
+
+  if [ "$#" = "0" ]; then attach="yes"; fi
+
+  while [ "$1" != "" ] # Loop until we've used up all params
+    do
+      case $1 in
+        --drivea | -da)              # Set drive a
+          setdrive "a" "$2"
+          shift 2
+          ;;
+        --driveb | -db)              # Set drive b
+          setdrive "b" "$2"
+          shift 2
+          ;;
+        --drivec | -dc)              # Set drive c
+          setdrive "c" "$2"
+          shift 2
+          ;;
+        --drived | -dd)              # Set drive d
+          setdrive "d" "$2"
+          shift 2
+          ;;
+        --drivei | -di)              # Set drive i
+          setdrive "i" "$2"
+          shift 2
+          ;;
+        --drivej | -dj)              # Set drive j
+          setdrive "j" "$2"
+          shift 2
+          ;;
+        --drivep | -dp)              # Set drive p
+          setdrive "p" "$2"
+          shift 2
+          ;;
+        --name | -n)                 # Set TMUX session name (not yet implemented)
+          ;;
+        --netsrvr | -ns)             # Set network server config file
+          netcfg "s" "$2"
+          shift 2
+          ;;
+        --netclnt | -nc)             # Set network client config file
+          netcfg "c" "$2"
+          shift 2
+          ;;
+        --cmd | --command | -c)      # Send commands to session, but...
+          commands="$2"              # not now; save them for later.
+          shift 2                    # Note: only the last -c param will run
+          ;;                               
+        --help | -h) 
+          showhelp
+          exit
+          ;;
+        -z | -8 | -s | -l | -i | -u) # Built-in cpmsim params; collect them
+          params="$params $1"
+          shift 1
+          ;;
+        -m | -x | -d)                # More built-in cpmsim params
+          params="$params $1 $2"
+          shift 2
+          ;;
+        *)
+          echo "Unrecognized parameter: $1. Try '$0 --help' for help."
+          exit 1
+          ;;
+      esac
+    done
+
+# ----------------------------------------------------------------
+# LET'S GO!
+# --
+#
+# 1. If TMUX isn't installed on the system, just run CP/M directly.
+# 2. If a TMUX session by the specified name doesn't exist, create
+#    it & launch the the OS in it.
+# 3. Possibly attach to the session.
+
+  [ ! "$tmux_installed" = "0" ] && { $simcmd; exit; }              # If no TMUX, just run it
+  [ ! "$is_session"     = "0" ] && { 
+    mkdir -p disks/$(basename -- $0)                               # To avoid competing sessions overwriting each other's links,
+    for a in {a..p}                                                # drop hard links into disks/$session_name instead. [See note
+     do                                                            # at the end of this file for further discussion.]
+       [ -f disks/drive$a.dsk ] && ln -f disks/drive$a.dsk disks/$(basename -- $0)/drive$a.dsk 
+     done
+#    ln -r -s -f disks/library/ disks/$(basename -- $0)/library     # was creating issues in the Docker image, and it's unneeded anyway since I'm using hard links to disk images
+    attach="yes"                                                   # Since this is a new session, automatically attach
+    tmux new  -d -s $session_name; sleep 3                         # ...create new session, wait to load (your needs may vary)
+    sendcmd "$simcmd -d disks/$(basename -- $0)"                   # run cpmsim in our session
+   }
+
+   sendcmd "$commands"                                             # send any cmds specified with -c
+   [ "$attach" = "yes" ] && tmux attach -t $session_name
+exit                                                               # to facilitate graceful degrading, ". ./zpack_os" is placed
+                                                                   # in the original launch script before the original "./cpmsim"
+                                                                   # line, which is left intact. So if zpack_os is not found, the
+                                                                   # original script will still behave as expected. So we must 
+                                                                   # explicitly exit here to avoid running the original command.
+
+# cpmsim works as follows: all disk images are kept in disks/library, and then launch scripts create hard links with names
+# like drivea.dsk, driveb.dsk to the images in disks/library to be mounted on each drive.
+
+# All this assumes you're only running a single instance of cpmsim at a time. A second instance will overwrite the links in
+# disks/, and confuse the first session. The solution here is to drop each session's links into its own subdir below disks/.
+
+# The restriction is that they must be hard links, since a symbolic link would point only back to the link in disks/ and thus be
+# affected by any subsequent changes to that link. Since cpmsim creates hard links in disks/, a hard link to that link will pick
+# up the original image file's inode data from the disks/ link, and thus be immune to any subsequent changes to the disks/ links.
+
+# Be aware that this does not avoid the problem of two sessions attempting to use the same disks/library images. Any changes made 
+# in one session will still show up in the other, so exercise caution. The solution to this would to be to simply make a copy of 
+# the original image, but lead to headaches trying to maintain separate libraries for each session.
