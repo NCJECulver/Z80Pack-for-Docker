@@ -1,6 +1,27 @@
-#/bin/bash
+#/bin/sh
+container_name="Z80Pack1"
+
 docker build -f Dockerfile \
             --build-arg ZPackVer=1.36 \
              -t z80pack.136 \
-            --rm --squash . && \
-            docker rmi $(docker images -q -f dangling=true)
+            --rm --squash .
+
+docker rmi $(docker images -q -f dangling=true)
+
+echo "----------"
+echo "Docker image successfully built. Ready to run a container in daemon mode as follows."
+echo "To preserve your work outside the container uncomment the "-v" lines."
+echo ""
+echo "    docker run -t -d \\"
+echo "          --name $container_name \\"
+echo "           -p 4000-4031:4000-4031 \\"
+echo "#           -v /path/to/external/cpmsim/disks:/root/z80pack/cpmsim/disks \\"
+echo "#           -v /path/to/external/cpmsim/conf:/root/z80pack/cpmsim/conf \\"
+echo "           z80pack.136 \\"
+echo "           /bin/bash"
+echo ""
+echo "You may then run CP/M as follows:"
+echo ""
+echo "    docker exec -it $container_name <command>"
+echo ""
+echo "where <command> is one of: cpm13 cpm14 cpm1975 cpm2 cpm3 cpm3-8080 fuzix mpm"
