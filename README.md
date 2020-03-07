@@ -22,11 +22,7 @@ This README cannot be a full tutorial on interacting with Docker containers. Her
 
 Perhaps the most useful is to run it in non-interactive (detached) mode so it's always available in the background as if it were a daemon.
 
-docker run -t -d \
-          --name z80pack \
-           -p 4000-4031:4000-4031 \
-           z80pack.136 \
-           /bin/bash
+docker run -t -d --name z80pack -p 4000-4031:4000-4031 z80pack.136 /bin/bash
 
 You can then EXECute a command within the container like this:
 
