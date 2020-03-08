@@ -137,8 +137,8 @@ RUN     for scr in cpm13 cpm14 cpm1975 cpm2 cpm3 cpm3-8080 fuzix mpm;           
           sed -i 's/\.\/format/mkdskimg/g' $scr                                       ;\
           simcmd=$(grep cpmsim $scr)                                                  ;\
           sed -i "s|$simcmd|simcmd='$simcmd'|g" $scr                                  ;\
-          echo ". ./zpack_os" >> $scr                                                 ;\
-          echo $simcmd >> $scr                                                        ;\
+          echo "[ -f ./zpack_os] && . ./zpack_os" >> $scr                             ;\
+          echo "$simcmd" >> $scr                                                      ;\
         done
 
 
