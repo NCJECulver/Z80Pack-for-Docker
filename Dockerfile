@@ -131,16 +131,15 @@ RUN     cd /root/                                                               
 WORKDIR /root/z80pack/cpmsim
 RUN     for scr in cpm13 cpm14 cpm1975 cpm2 cpm3 cpm3-8080 fuzix mpm;                  \
         do                                                                             \
-          echo $scr                                                                   ;\
-          sed -i 's/\.cpm/\.dsk/g' $scr                                               ;\
-          sed -i 's/bin\/sh/bin\/bash/g' $scr                                         ;\
-          sed -i 's/\.\/format/mkdskimg/g' $scr                                       ;\
-          simcmd=$(grep cpmsim $scr)                                                  ;\
-          sed -i "s|$simcmd|simcmd='$simcmd'|g" $scr                                  ;\
+          echo "Updating script: $scr"                                                ;\
+          simcmd=$(grep ^./ $scr)                                                     ;\
+          sed -i 's|$simcmd|simcmd="$simcmd"|g' $scr                                  ;\
+          sed -i 's|\.cpm|\.dsk|g' $scr                                               ;\
+          sed -i 's|bin/sh|bin/bash|g' $scr                                           ;\
+          sed -i 's|\./format|mkdskimg|g' $scr                                        ;\
           echo "[ -f ./zpack_os] && . ./zpack_os" >> $scr                             ;\
-          echo "$simcmd" >> $scr                                                      ;\
+          echo "\$simcmd" >> $scr                                                     ;\
         done
-
 
 # ----------------------------
 # Stage 3 - FRESH IMAGE
