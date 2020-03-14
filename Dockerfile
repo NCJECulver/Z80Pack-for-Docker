@@ -10,6 +10,8 @@
 #   docker build -f Dockerfile.z80pack.136 .
 
 # =============================================================
+# 2020-03-14 Added code to link /bin/sh to /bin/bash.
+# 
 # 2020-03-13 Update launch script update code
 #            Now using ZPackScripts, so remove zpack_os, install
 #--------------------------------------------------------------
@@ -184,7 +186,7 @@ FROM    alpine AS z80pack.136
 
 # Add wget (for installing additional components), TMUX, BASH
 
-RUN     apk --no-cache add wget tmux bash
+RUN     apk --no-cache add wget tmux bash && mv /bin/sh /bin/sh.old && ln -s /bin/bash /bin/sh
 
 # Set IP ports for MP/M networking
 
