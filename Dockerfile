@@ -9,6 +9,11 @@
 #
 #   docker build -f Dockerfile.z80pack.136 .
 
+# =============================================================
+# 2020-03-13 Update launch script update code
+#            Now using ZPackScripts, so remove zpack_os, install
+#--------------------------------------------------------------
+
 # Specify here the version of Z80Pack you would like to install.
 # Options range from 1.8 to 1.36 (though this build has only be
 # tested with versions >1.20). The default setting here may be
@@ -27,7 +32,7 @@ ARG     ZPackVer=1.36
 
 # Once built, run this image as follows:
 #   docker run -it \
-#              -v /path/to/z80pack/cpmsim/library:/root/z80pack/cpmsim/library \
+#              -v /pathto/host/z80pack/cpmsim/library:/root/z80pack/cpmsim/library \
 #              -p 4000:4000 -p 4001:4001 -p 4002:4002 -p 4003:4003 \
 #     z80pack.136 ./cpm2
 #
@@ -93,8 +98,16 @@ RUN     cd /root/z80pack/cpmsim/disks/library/                                  
         if [ ! -d ../backups ]; then mkdir -p ../backups; fi                        && \
         cp -p * ../backups
 
-COPY    zpack_os /root/z80pack/cpmsim
-COPY    install /root/z80pack/cpmsim
+RUN     cd /root/                                                                   && \
+        git clone https://github.com/NCJECulver/ZPackScripts.git                    && \
+        cp ZPackScripts/* z80pack/                                                  && \
+        cd z80pack/                                                                 && \
+        sed -i 's|docker\=no|docker\=yes|' zpack_install                            && \
+        cd ..                                                                       &&\
+        rm -r ZPackScripts/
+
+#COPY    zpack_os /root/z80pack/cpmsim
+#COPY    install /root/z80pack/cpmsim
 
 # cpmtools
 # --------
@@ -128,33 +141,50 @@ RUN     cd /root/                                                               
 
 # update scripts
 # ------ -------
+#WORKDIR /root/z80pack/cpmsim
+#RUN     for scr in cpm13 cpm14 cpm1975 cpm2 cpm3 cpm3-8080 fuzix mpm;                  \
+#        do                                                                             \
+#          echo "Updating script: $scr"                                                ;\
+#          sed -i 's|bin/sh|bin/bash|g' $scr                                           ;\
+#          sed -i 's|\.cpm|\.dsk|g' $scr                                               ;\
+#          sed -i 's|\./format|mkdskimg|g' $scr                                        ;\
+#          simcmd=$(grep ./ $scr)                                                      ;\
+#          sed -i 's|./|#./|' $1                                                       ;\
+#          echo "" >> $scr                                                             ;\
+#          echo "#---- ZPack_OS mods" >> $scr                                          ;\
+#          echo "simcmd='$simcmd'" >> $scr                                             ;\
+#          echo "[ -f ../zpack_os ] && . ../zpack_os" >> $scr                          ;\
+#          echo "\$simcmd" >> $scr                                                     ;\
+#        done
 WORKDIR /root/z80pack/cpmsim
 RUN     for scr in cpm13 cpm14 cpm1975 cpm2 cpm3 cpm3-8080 fuzix mpm;                  \
         do                                                                             \
           echo "Updating script: $scr"                                                ;\
-          simcmd=$(grep ^./ $scr)                                                     ;\
-          sed -i 's|$simcmd|simcmd="$simcmd"|g' $scr                                  ;\
-          sed -i 's|\.cpm|\.dsk|g' $scr                                               ;\
           sed -i 's|bin/sh|bin/bash|g' $scr                                           ;\
+          sed -i 's|\.cpm|\.dsk|g' $scr                                               ;\
           sed -i 's|\./format|mkdskimg|g' $scr                                        ;\
-          echo "[ -f ./zpack_os] && . ./zpack_os" >> $scr                             ;\
+          simcmd=$(grep ^./ $scr)                                                     ;\
+          sed -i 's|^./|\#./|' $scr                                                   ;\
+          echo "" >> $scr                                                             ;\
+          echo "#---- ZPack_OS mods" >> $scr                                          ;\
+          echo "simcmd='$simcmd'" >> $scr                                             ;\
+          echo "[ -f ../zpack_os ] && . ../zpack_os" >> $scr                          ;\
           echo "\$simcmd" >> $scr                                                     ;\
         done
-
 # ----------------------------
 # Stage 3 - FRESH IMAGE
 # ----------------------------
 
 # Everything's done. Now copy the results into a clean
-# base image. Result: reduction from 628mb to 53mb.
+# base image. Result: reduction from 628mb to 50mb.
 
 # Start with a clean base
 
-FROM    alpine AS z80pack.dev
+FROM    alpine AS z80pack.136
 
-# Add wget (for installing additional components), TMUX, BASH and the JOE editor
+# Add wget (for installing additional components), TMUX, BASH
 
-RUN     apk --no-cache add wget tmux bash joe
+RUN     apk --no-cache add wget tmux bash
 
 # Set IP ports for MP/M networking
 
