@@ -103,13 +103,7 @@ RUN     cd /root/z80pack/cpmsim/disks/library/                                  
 RUN     cd /root/                                                                   && \
         git clone https://github.com/NCJECulver/ZPackScripts.git                    && \
         cp ZPackScripts/* z80pack/                                                  && \
-        cd z80pack/                                                                 && \
-        sed -i 's|docker\=no|docker\=yes|' zpack_install                            && \
-        cd ..                                                                       &&\
         rm -r ZPackScripts/
-
-#COPY    zpack_os /root/z80pack/cpmsim
-#COPY    install /root/z80pack/cpmsim
 
 # cpmtools
 # --------
@@ -143,21 +137,6 @@ RUN     cd /root/                                                               
 
 # update scripts
 # ------ -------
-#WORKDIR /root/z80pack/cpmsim
-#RUN     for scr in cpm13 cpm14 cpm1975 cpm2 cpm3 cpm3-8080 fuzix mpm;                  \
-#        do                                                                             \
-#          echo "Updating script: $scr"                                                ;\
-#          sed -i 's|bin/sh|bin/bash|g' $scr                                           ;\
-#          sed -i 's|\.cpm|\.dsk|g' $scr                                               ;\
-#          sed -i 's|\./format|mkdskimg|g' $scr                                        ;\
-#          simcmd=$(grep ./ $scr)                                                      ;\
-#          sed -i 's|./|#./|' $1                                                       ;\
-#          echo "" >> $scr                                                             ;\
-#          echo "#---- ZPack_OS mods" >> $scr                                          ;\
-#          echo "simcmd='$simcmd'" >> $scr                                             ;\
-#          echo "[ -f ../zpack_os ] && . ../zpack_os" >> $scr                          ;\
-#          echo "\$simcmd" >> $scr                                                     ;\
-#        done
 WORKDIR /root/z80pack/cpmsim
 RUN     for scr in cpm13 cpm14 cpm1975 cpm2 cpm3 cpm3-8080 fuzix mpm;                  \
         do                                                                             \
@@ -173,6 +152,7 @@ RUN     for scr in cpm13 cpm14 cpm1975 cpm2 cpm3 cpm3-8080 fuzix mpm;           
           echo "[ -f ../zpack_os ] && . ../zpack_os" >> $scr                          ;\
           echo "\$simcmd" >> $scr                                                     ;\
         done
+
 # ----------------------------
 # Stage 3 - FRESH IMAGE
 # ----------------------------
